@@ -1,15 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
-  Search,
   Truck,
+  Search,
+  Send,
   Phone,
   ShieldCheck,
-  Send,
   MapPin,
-  CheckSquare,
-  Square,
-  Download,
-  CheckCircle2,
+  Calendar,
 } from 'lucide-react';
 import { Transporter } from '../../types';
 
@@ -22,22 +19,18 @@ export const TransportersTable: React.FC<TransportersTableProps> = ({
   transporters,
   onOpenBroadcastForSelected,
 }) => {
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [vehicleFilter, setVehicleFilter] = useState('all');
 
-  const filteredTransporters = useMemo(() => {
-    return transporters.filter((t) => {
-      const matchesSearch =
-        t.driverName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.vehicleNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.routePreference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.driverPhone?.includes(searchQuery);
-
-      const matchesVehicle = vehicleFilter === 'all' || t.vehicleType === vehicleFilter;
-      return matchesSearch && matchesVehicle;
-    });
-  }, [transporters, searchQuery, vehicleFilter]);
+  const filteredTransporters = transporters.filter((t) => {
+    return (
+      (t.driverPhone || '').includes(searchTerm) ||
+      (t.vehicleType || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (t.vehicleNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (t.driverName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (t.routePreference || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredTransporters.length) {
@@ -47,211 +40,155 @@ export const TransportersTable: React.FC<TransportersTableProps> = ({
     }
   };
 
-  const toggleSelectRow = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+  const toggleSelectOne = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((i) => i !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
   };
 
-  const selectedRows = useMemo(() => {
+  const getSelectedObjects = () => {
     return transporters.filter((t) => selectedIds.includes(t.user_id));
-  }, [transporters, selectedIds]);
-
-  const exportCSV = () => {
-    const rowsToExport = selectedRows.length > 0 ? selectedRows : filteredTransporters;
-    const headers = ['Vehicle Number', 'Driver Name', 'Vehicle Type', 'Capacity', 'Routes', 'Phone', 'Availability'];
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [
-        headers.join(','),
-        ...rowsToExport.map((r) =>
-          [
-            `"${r.vehicleNumber}"`,
-            `"${r.driverName}"`,
-            r.vehicleType,
-            `"${r.capacity}"`,
-            `"${r.routePreference}"`,
-            r.driverPhone,
-            `"${r.availability}"`,
-          ].join(',')
-        ),
-      ].join('\n');
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `transporters_fleet_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (
     <div className="space-y-4">
-      {/* Top Filter Bar */}
-      <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search driver, vehicle number, routes..."
-              className="w-full bg-slate-900 border border-slate-700/70 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-
-          <select
-            value={vehicleFilter}
-            onChange={(e) => setVehicleFilter(e.target.value)}
-            className="bg-slate-900 border border-slate-700/70 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
-          >
-            <option value="all">All Vehicle Types</option>
-            <option value="Truck">Trucks (Open / Close)</option>
-            <option value="Container">Containers</option>
-            <option value="Tempo">Tempos (7ft - 17ft)</option>
-            <option value="Trailer / ODC">Trailers / ODC</option>
-          </select>
+      {/* Search & Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search by phone, vehicle number, or route..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3.5 py-2 text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500 transition"
+          />
         </div>
 
-        <button
-          onClick={exportCSV}
-          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700/70 hover:border-slate-600 text-xs font-medium text-slate-200 hover:text-white transition"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Export Fleet CSV</span>
-        </button>
-      </div>
-
-      {/* Floating 1-Click Multi-Select Action Bar */}
-      {selectedIds.length > 0 && (
-        <div className="bg-gradient-to-r from-emerald-950/90 to-slate-900 border border-emerald-500/40 p-3.5 rounded-2xl shadow-xl flex items-center justify-between animate-slide-up">
-          <div className="flex items-center space-x-3">
-            <span className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center justify-center">
-              {selectedIds.length}
-            </span>
-            <span className="text-xs font-semibold text-white">
-              {selectedIds.length} transporter{selectedIds.length > 1 ? 's' : ''} selected
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-2.5">
+        <div className="flex items-center space-x-2">
+          {selectedIds.length > 0 && (
             <button
-              onClick={() => onOpenBroadcastForSelected(selectedRows)}
-              className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow-md transition"
+              onClick={() => onOpenBroadcastForSelected(getSelectedObjects())}
+              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md transition"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>1-Click Load Broadcast / Inquiry</span>
+              <span>Broadcast ({selectedIds.length})</span>
             </button>
-            <button
-              onClick={() => setSelectedIds([])}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition"
-            >
-              Clear
-            </button>
+          )}
+
+          <div className="text-xs text-slate-400 bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
+            Registered Fleet: <span className="text-white font-bold">{transporters.length}</span>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Table Mirror */}
-      <div className="glass-card rounded-2xl overflow-hidden border border-slate-800">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 bg-slate-900/90 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                <th className="p-3.5 w-10 text-center">
-                  <button onClick={toggleSelectAll} className="text-slate-400 hover:text-white">
-                    {selectedIds.length > 0 && selectedIds.length === filteredTransporters.length ? (
-                      <CheckSquare className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <Square className="w-4 h-4" />
-                    )}
-                  </button>
-                </th>
-                <th className="p-3.5">Vehicle Info</th>
-                <th className="p-3.5">Driver / Owner Name</th>
-                <th className="p-3.5">Payload Capacity</th>
-                <th className="p-3.5">Preferred Routes</th>
-                <th className="p-3.5">Phone & Verification</th>
-                <th className="p-3.5">Availability</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-xs">
-              {filteredTransporters.map((row) => {
-                const isSelected = selectedIds.includes(row.user_id);
-                return (
-                  <tr
-                    key={row.user_id}
-                    className={`table-row-hover ${isSelected ? 'bg-emerald-950/20' : ''}`}
-                  >
-                    <td className="p-3.5 text-center">
-                      <button onClick={() => toggleSelectRow(row.user_id)}>
-                        {isSelected ? (
-                          <CheckSquare className="w-4 h-4 text-emerald-400" />
-                        ) : (
-                          <Square className="w-4 h-4 text-slate-600 hover:text-slate-400" />
-                        )}
-                      </button>
-                    </td>
+      {/* Main Table */}
+      <div className="rounded-2xl bg-slate-900/80 border border-slate-800/80 overflow-hidden shadow-sm">
+        {filteredTransporters.length === 0 ? (
+          <div className="py-16 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mx-auto">
+              <Truck className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white">No Transporters Registered</h4>
+              <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
+                {searchTerm
+                  ? 'No transporters match your search query.'
+                  : 'Transporters and drivers who register their vehicles via WhatsApp will appear here.'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 bg-slate-950/40 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <th className="p-3.5 pl-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.length === filteredTransporters.length && filteredTransporters.length > 0}
+                      onChange={toggleSelectAll}
+                      className="rounded border-slate-700 text-blue-500 focus:ring-0"
+                    />
+                  </th>
+                  <th className="p-3.5">Driver / Contact</th>
+                  <th className="p-3.5">Vehicle Type</th>
+                  <th className="p-3.5">Vehicle Number</th>
+                  <th className="p-3.5">Capacity / Route</th>
+                  <th className="p-3.5">Availability</th>
+                  <th className="p-3.5 text-right pr-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-xs">
+                {filteredTransporters.map((t) => {
+                  const isSelected = selectedIds.includes(t.user_id);
+                  return (
+                    <tr
+                      key={t.user_id}
+                      className={`hover:bg-slate-800/40 transition ${
+                        isSelected ? 'bg-blue-500/5' : ''
+                      }`}
+                    >
+                      <td className="p-3.5 pl-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectOne(t.user_id)}
+                          className="rounded border-slate-700 text-blue-500 focus:ring-0"
+                        />
+                      </td>
 
-                    {/* Vehicle */}
-                    <td className="p-3.5">
-                      <div className="font-mono font-bold text-emerald-400 text-sm">{row.vehicleNumber}</div>
-                      <div className="text-slate-400 text-[11px] flex items-center space-x-1 mt-0.5">
-                        <Truck className="w-3.5 h-3.5 text-slate-500" />
-                        <span>{row.vehicleType}</span>
-                      </div>
-                    </td>
+                      <td className="p-3.5">
+                        <div className="font-bold text-white flex items-center space-x-1.5">
+                          <span>{t.driverName || 'Registered Transporter'}</span>
+                          <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                          {t.driverPhone || 'No Phone'}
+                        </div>
+                      </td>
 
-                    {/* Driver */}
-                    <td className="p-3.5">
-                      <div className="font-semibold text-white">{row.driverName}</div>
-                      {row.notes && <div className="text-slate-400 text-[11px] truncate max-w-xs">{row.notes}</div>}
-                    </td>
+                      <td className="p-3.5">
+                        <div className="font-semibold text-slate-200">{t.vehicleType || 'Commercial Vehicle'}</div>
+                      </td>
 
-                    {/* Capacity */}
-                    <td className="p-3.5">
-                      <span className="px-2 py-1 rounded-md bg-slate-800 border border-slate-700 font-semibold text-slate-200">
-                        {row.capacity}
-                      </span>
-                    </td>
-
-                    {/* Routes */}
-                    <td className="p-3.5 max-w-sm">
-                      <div className="flex items-center space-x-1.5 text-slate-300 font-medium">
-                        <MapPin className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                        <span className="truncate" title={row.routePreference}>
-                          {row.routePreference}
+                      <td className="p-3.5">
+                        <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-[11px] text-slate-200">
+                          {t.vehicleNumber || 'Pending'}
                         </span>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Phone */}
-                    <td className="p-3.5">
-                      <div className="flex items-center space-x-1.5 text-slate-200">
-                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>{row.driverPhone}</span>
-                      </div>
-                      <div className="flex items-center space-x-1 text-[10px] text-emerald-400 mt-0.5">
-                        <ShieldCheck className="w-3 h-3" />
-                        <span>Verified Transporter</span>
-                      </div>
-                    </td>
+                      <td className="p-3.5">
+                        <div className="text-slate-200">{t.capacity || 'Standard'}</div>
+                        <div className="text-[11px] text-slate-400 truncate max-w-[150px] mt-0.5">
+                          {t.routePreference || 'All Corridors'}
+                        </div>
+                      </td>
 
-                    {/* Availability */}
-                    <td className="p-3.5 whitespace-nowrap">
-                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span>{row.availability || 'Available'}</span>
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <td className="p-3.5">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                          {t.availability || 'Available'}
+                        </span>
+                      </td>
+
+                      <td className="p-3.5 text-right pr-4">
+                        <button
+                          onClick={() => onOpenBroadcastForSelected([t])}
+                          title="Check Availability via WhatsApp"
+                          className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 transition"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

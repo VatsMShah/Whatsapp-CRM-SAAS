@@ -1,79 +1,100 @@
 import React, { useState } from 'react';
-import { X, Send, Sparkles, CheckCircle2, MessageSquare, Bell, Megaphone, Users, RefreshCw } from 'lucide-react';
-import confetti from 'canvas-confetti';
-import { BroadcastTemplate, BroadcastType } from '../../types';
-import { DEFAULT_TEMPLATES, sendBulkBroadcast, SendBroadcastResult } from '../../services/whatsapp';
+import {
+  X,
+  Send,
+  Sparkles,
+  CheckCircle2,
+  Users,
+  MessageSquare,
+  Truck,
+  Package,
+  CreditCard,
+  Megaphone,
+} from 'lucide-react';
+import { dbService } from '../../services/supabase';
+import { BroadcastTemplate } from '../../types';
 
 interface BroadcastModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedRecipients: Array<{
-    name?: string;
-    contactName?: string;
-    driverName?: string;
-    phone?: string;
-    driverPhone?: string;
-    loadingCity?: string;
-    unloadingCity?: string;
-    vehicleType?: string;
-    material?: string;
-    loadingDate?: string;
-    [key: string]: any;
-  }>;
+  selectedRecipients: any[];
 }
+
+const TEMPLATES: BroadcastTemplate[] = [
+  {
+    id: 't1',
+    name: 'Load Follow-up',
+    type: 'follow_up',
+    title: '🚚 Freight Demand Follow-up',
+    text: '🙏 Hello {{name}},\n\nWe have verified trucks available for your route ({{route}}). Would you like to confirm the booking or get best market freight rates today?\n\n- Traket Transport Desk',
+    variables: ['name', 'route'],
+  },
+  {
+    id: 't2',
+    name: 'Transporter Availability',
+    type: 'follow_up',
+    title: '🚛 Check Vehicle Availability',
+    text: '🚚 Hello {{name}},\n\nDo you have available vehicles ready for dispatch today? We have immediate high-paying loads ready for loading.\n\nReply with your current location.\n- Traket Logistics',
+    variables: ['name'],
+  },
+  {
+    id: 't3',
+    name: 'Corridor Publicity',
+    type: 'publicity',
+    title: '📢 Special Rate Announcement',
+    text: '🌟 Special Freight Rates Alert!\n\nTraket Transport offers guaranteed vehicle placement and verified rates for all major industrial hubs.\n\nBook your load directly on WhatsApp 24/7!',
+    variables: [],
+  },
+  {
+    id: 't4',
+    name: 'Payment Reminder',
+    type: 'reminder',
+    title: '💳 Advance / Balance Clearance',
+    text: '📋 Dear {{name}},\n\nThis is a polite reminder regarding pending clearance for {{company}} vehicle placement. Kindly confirm receipt.\n\n- Traket Accounts Team',
+    variables: ['name', 'company'],
+  },
+];
 
 export const BroadcastModal: React.FC<BroadcastModalProps> = ({
   isOpen,
   onClose,
   selectedRecipients,
 }) => {
-  const [selectedType, setSelectedType] = useState<BroadcastType>('follow_up');
-  const [selectedTemplate, setSelectedTemplate] = useState<BroadcastTemplate>(DEFAULT_TEMPLATES[0]);
-  const [customText, setCustomText] = useState(DEFAULT_TEMPLATES[0].text);
+  const [selectedTemplate, setSelectedTemplate] = useState<BroadcastTemplate>(TEMPLATES[0]);
+  const [customMessage, setCustomMessage] = useState(TEMPLATES[0].text);
   const [isSending, setIsSending] = useState(false);
-  const [sendResult, setSendResult] = useState<SendBroadcastResult | null>(null);
+  const [sendSuccess, setSendSuccess] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSelectTemplate = (tpl: BroadcastTemplate) => {
-    setSelectedTemplate(tpl);
-    setSelectedType(tpl.type);
-    setCustomText(tpl.text);
+  const handleSelectTemplate = (t: BroadcastTemplate) => {
+    setSelectedTemplate(t);
+    setCustomMessage(t.text);
   };
 
-  const sampleRecipient = selectedRecipients[0] || {
-    name: 'Rahul Verma',
-    loadingCity: 'Mumbai',
-    unloadingCity: 'Delhi',
-    vehicleType: 'Truck (22 Ft Open)',
-    loadingDate: '25/09/2026',
-    material: 'Industrial Motors',
-    phone: '+91 98205 00159',
-  };
-
-  // Preview generated with real recipient data
-  const previewText = customText
-    .replace(/{{name}}/g, sampleRecipient.name || sampleRecipient.contactName || sampleRecipient.driverName || 'Customer')
-    .replace(/{{from}}/g, sampleRecipient.loadingCity || 'Mumbai')
-    .replace(/{{to}}/g, sampleRecipient.unloadingCity || 'Delhi')
-    .replace(/{{vehicle}}/g, sampleRecipient.vehicleType || 'Truck')
-    .replace(/{{date}}/g, sampleRecipient.loadingDate || 'this week')
-    .replace(/{{material}}/g, sampleRecipient.material || 'Machinery');
-
-  const handleDispatch = async () => {
+  const handleSendBroadcast = async () => {
+    if (selectedRecipients.length === 0) return;
     setIsSending(true);
     try {
-      const result = await sendBulkBroadcast(
-        (selectedRecipients.length > 0 ? selectedRecipients : [sampleRecipient]) as any,
-        customText,
-        selectedType
-      );
-      setSendResult(result);
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
+      for (const rec of selectedRecipients) {
+        const phone = rec.phone || rec.driverPhone;
+        if (!phone) continue;
+        const name = rec.contactName || rec.driverName || 'Customer';
+        const company = rec.company || '';
+        const route = rec.loadingPin ? `${rec.loadingPin} ➔ ${rec.unloadingPin}` : 'your route';
+
+        const finalMsg = customMessage
+          .replace(/\{\{name\}\}/g, name)
+          .replace(/\{\{company\}\}/g, company)
+          .replace(/\{\{route\}\}/g, route);
+
+        await dbService.sendAgentMessage(phone, finalMsg);
+      }
+      setSendSuccess(true);
+      setTimeout(() => {
+        setSendSuccess(false);
+        onClose();
+      }, 1500);
     } catch (e) {
       console.error(e);
     } finally {
@@ -82,220 +103,113 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="glass-card w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-2xl bg-[#0c1222] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-              <Send className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <Send className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-display font-bold text-white">
-                1-Click WhatsApp Broadcast & Follow-Up
-              </h2>
-              <p className="text-xs text-slate-400">
-                Dispatch personalized messages via Meta Cloud API
-              </p>
+              <h3 className="text-sm font-bold text-white">1-Click WhatsApp Broadcast & Follow-up</h3>
+              <p className="text-xs text-slate-400">Dispatch instant messages to selected contacts</p>
             </div>
           </div>
           <button
-            onClick={() => {
-              setSendResult(null);
-              onClose();
-            }}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-5 flex-1">
-          {sendResult ? (
-            /* Success State */
-            <div className="text-center py-6 space-y-4 animate-slide-up">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">
-                  Messages Dispatched Successfully!
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Delivered to {sendResult.successful} of {sendResult.total} selected recipient(s) via WhatsApp Cloud API.
-                </p>
-              </div>
-
-              {/* Delivery list preview */}
-              <div className="max-h-48 overflow-y-auto rounded-xl bg-slate-950 border border-slate-800 p-3 text-left space-y-2">
-                {sendResult.recipients.map((rec, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-900/80 border border-slate-800">
-                    <div>
-                      <div className="font-semibold text-white">{rec.name}</div>
-                      <div className="text-[10px] text-slate-400">{rec.phone}</div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      Delivered
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={() => {
-                  setSendResult(null);
-                  onClose();
-                }}
-                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition"
-              >
-                Done
-              </button>
+        <div className="p-6 overflow-y-auto space-y-5">
+          {/* Target Audience Summary */}
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs">
+            <div className="flex items-center space-x-2 text-slate-300">
+              <Users className="w-4 h-4 text-emerald-400" />
+              <span>Target Recipients:</span>
+              <span className="font-bold text-white bg-slate-800 px-2 py-0.5 rounded">
+                {selectedRecipients.length} Selected
+              </span>
             </div>
-          ) : (
-            <>
-              {/* Recipient Count Banner */}
-              <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Users className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-medium text-emerald-200">
-                    Selected Recipients:
-                  </span>
-                </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-xs">
-                  {selectedRecipients.length > 0 ? selectedRecipients.length : 1} contact(s)
-                </span>
-              </div>
+            <span className="text-[11px] text-emerald-400">Meta WhatsApp Cloud API</span>
+          </div>
 
-              {/* Message Type Selector */}
-              <div>
-                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block mb-2">
-                  Choose Campaign Type
-                </label>
-                <div className="grid grid-cols-3 gap-2.5">
-                  <button
-                    onClick={() => {
-                      const t = DEFAULT_TEMPLATES.find((x) => x.type === 'follow_up') || DEFAULT_TEMPLATES[0];
-                      handleSelectTemplate(t);
-                    }}
-                    className={`p-3 rounded-xl border text-left transition flex flex-col space-y-1 ${
-                      selectedType === 'follow_up'
-                        ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300'
-                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-1.5 font-semibold text-xs text-white">
-                      <Bell className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Follow-Up</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400">Re-engage open leads</span>
-                  </button>
+          {/* Template Selector Pills */}
+          <div>
+            <label className="text-xs font-semibold text-slate-400 block mb-2">
+              Select Message Campaign Template
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {TEMPLATES.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => handleSelectTemplate(t)}
+                  className={`p-2.5 rounded-xl text-left border text-xs font-medium transition ${
+                    selectedTemplate.id === t.id
+                      ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="font-bold">{t.title}</div>
+                  <div className="text-[10px] opacity-75 mt-0.5">{t.name}</div>
+                </button>
+              ))}
+            </div>
+          </div>
 
-                  <button
-                    onClick={() => {
-                      const t = DEFAULT_TEMPLATES.find((x) => x.type === 'reminder') || DEFAULT_TEMPLATES[1];
-                      handleSelectTemplate(t);
-                    }}
-                    className={`p-3 rounded-xl border text-left transition flex flex-col space-y-1 ${
-                      selectedType === 'reminder'
-                        ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300'
-                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-1.5 font-semibold text-xs text-white">
-                      <MessageSquare className="w-3.5 h-3.5 text-teal-400" />
-                      <span>Reminder</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400">Loading / dispatch alerts</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      const t = DEFAULT_TEMPLATES.find((x) => x.type === 'publicity') || DEFAULT_TEMPLATES[2];
-                      handleSelectTemplate(t);
-                    }}
-                    className={`p-3 rounded-xl border text-left transition flex flex-col space-y-1 ${
-                      selectedType === 'publicity'
-                        ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300'
-                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-1.5 font-semibold text-xs text-white">
-                      <Megaphone className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Publicity / Offer</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400">Promotions & Load alerts</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Template Text Editor */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                    Message Template
-                  </label>
-                  <span className="text-[11px] text-emerald-400 font-medium">
-                    Merge tags: &#123;&#123;name&#125;&#125;, &#123;&#123;from&#125;&#125;, &#123;&#123;to&#125;&#125;, &#123;&#123;vehicle&#125;&#125;, &#123;&#123;date&#125;&#125;
-                  </span>
-                </div>
-                <textarea
-                  rows={4}
-                  value={customText}
-                  onChange={(e) => setCustomText(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono leading-relaxed"
-                />
-              </div>
-
-              {/* Live WhatsApp Preview Bubble */}
-              <div>
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
-                  Live Preview on Customer's WhatsApp
-                </label>
-                <div className="p-4 rounded-xl bg-[#0b141a] border border-slate-800 relative">
-                  <div className="max-w-md bg-[#005c4b] text-white p-3 rounded-2xl rounded-tl-none shadow-md text-xs leading-relaxed whitespace-pre-wrap font-sans">
-                    {previewText}
-                    <div className="text-[9px] text-emerald-200 text-right mt-1.5 flex items-center justify-end space-x-1">
-                      <span>10:45 AM</span>
-                      <CheckCircle2 className="w-3 h-3 text-teal-300 inline" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+          {/* Message Composer */}
+          <div>
+            <label className="text-xs font-semibold text-slate-400 block mb-1.5">
+              Message Content (WhatsApp Formatted)
+            </label>
+            <textarea
+              rows={6}
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              className="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-emerald-500 font-sans"
+            />
+            <div className="text-[11px] text-slate-400 mt-1 flex items-center space-x-2">
+              <span>Available tags:</span>
+              <code className="text-emerald-400 bg-slate-900 px-1 rounded">{'{{name}}'}</code>
+              <code className="text-emerald-400 bg-slate-900 px-1 rounded">{'{{company}}'}</code>
+              <code className="text-emerald-400 bg-slate-900 px-1 rounded">{'{{route}}'}</code>
+            </div>
+          </div>
         </div>
 
         {/* Modal Footer */}
-        {!sendResult && (
-          <div className="p-4 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleDispatch}
-              disabled={isSending}
-              className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-semibold text-xs shadow-lg shadow-emerald-600/30 transition disabled:opacity-50 active:scale-95"
-            >
-              {isSending ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Dispatching via Meta API...</span>
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  <span>
-                    Send in 1-Click to {selectedRecipients.length > 0 ? selectedRecipients.length : 1} Contact(s)
-                  </span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
+        <div className="p-4 border-t border-slate-800 bg-slate-900/60 flex items-center justify-end space-x-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition"
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={handleSendBroadcast}
+            disabled={isSending || selectedRecipients.length === 0}
+            className="flex items-center space-x-2 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition"
+          >
+            {isSending ? (
+              <span>Sending WhatsApp Broadcast...</span>
+            ) : sendSuccess ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-white" />
+                <span>Dispatched Successfully!</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-3.5 h-3.5" />
+                <span>Send to {selectedRecipients.length} Contact(s)</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

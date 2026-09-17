@@ -52,6 +52,7 @@ export interface SupportTicket {
   phone?: string;
   contactName?: string;
   subject?: string;
+  message?: string;
   status: 'open' | 'in_progress' | 'resolved';
   priority?: 'high' | 'medium' | 'low';
   updated_at: string;
@@ -78,15 +79,12 @@ export interface ConversationThread {
   messages: ChatMessage[];
 }
 
-export interface WorkspaceTenant {
-  id: string;
+export interface ClientCompanyProfile {
   name: string;
-  slug: string;
   phoneNumber: string;
   phoneNumberId: string;
   whatsappStatus: 'connected' | 'disconnected';
   supabaseUrl: string;
-  createdAt: string;
 }
 
 export type BroadcastType = 'follow_up' | 'reminder' | 'publicity' | 'custom';
@@ -95,6 +93,7 @@ export interface BroadcastTemplate {
   id: string;
   name: string;
   type: BroadcastType;
+  title?: string;
   text: string;
   variables: string[];
 }

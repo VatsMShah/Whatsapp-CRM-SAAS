@@ -1,329 +1,76 @@
 import { createClient } from '@supabase/supabase-js';
-import { BookingLead, Transporter, SessionRecord, SupportTicket, ConversationThread, WorkspaceTenant, ChatMessage } from '../types';
+import {
+  BookingLead,
+  Transporter,
+  SessionRecord,
+  SupportTicket,
+  ConversationThread,
+  ChatMessage,
+  ClientCompanyProfile,
+} from '../types';
 import { resolvePinCode, estimateDistanceKm, calculateLeadScore } from '../utils/pinResolver';
 
-// Default Supabase config (fallback to active environment)
-const DEFAULT_SUPABASE_URL = '';
-const DEFAULT_SUPABASE_KEY = '';
+export const SUPABASE_URL = '';
+export const SUPABASE_KEY = '';
 
-// Available Workspaces (Multi-Tenant)
-export const INITIAL_TENANTS: WorkspaceTenant[] = [
-  {
-    id: 'tenant-traket',
-    name: 'Traket Transport',
-    slug: 'traket',
-    phoneNumber: '+91 99309 95959',
-    phoneNumberId: '1240163099173755',
-    whatsappStatus: 'connected',
-    supabaseUrl: DEFAULT_SUPABASE_URL,
-    createdAt: '2026-09-01',
-  },
-  {
-    id: 'tenant-fastmove',
-    name: 'FastMove Freight & Logistics',
-    slug: 'fastmove',
-    phoneNumber: '+91 98200 12345',
-    phoneNumberId: '1030974210092739',
-    whatsappStatus: 'connected',
-    supabaseUrl: DEFAULT_SUPABASE_URL,
-    createdAt: '2026-09-10',
-  },
-  {
-    id: 'tenant-apex',
-    name: 'Apex ODC & Trailer Lines',
-    slug: 'apex',
-    phoneNumber: '+91 97654 88899',
-    phoneNumberId: '1099887766554433',
-    whatsappStatus: 'disconnected',
-    supabaseUrl: DEFAULT_SUPABASE_URL,
-    createdAt: '2026-09-15',
-  }
-];
+export const WHATSAPP_CONFIG = {
+  phoneNumberId: '1240163099173755',
+  displayPhoneNumber: '+91 99309 95959',
+  token: 'EAAM8c7oE44kBO8fM1YwNl1wM5J9z0c2x1q7r4s3t5u8v0w1x2y3z4a5b6c7d8e9f0',
+};
 
-// Rich initial sample dataset for immediate visual excellence and testing
-const SAMPLE_BOOKINGS: BookingLead[] = [
-  {
-    user_id: 'book_101',
-    state: 'cta_menu',
-    updated_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    loadingPin: '400001',
-    unloadingPin: '110001',
-    cargoType: 'Domestic',
-    vehicleType: 'Truck',
-    vehicleSubType: '22 Ft Open',
-    material: 'Industrial Precision Machinery & Motors',
-    loadingDate: '25/09/2026',
-    company: 'Reliance Logistics Allied',
-    contactName: 'Rahul Verma',
-    phone: '+91 98205 00159',
-    email: 'rahul.verma@reliancelogistics.com',
-    status: 'new',
-    leadScore: 'HOT',
-  },
-  {
-    user_id: 'book_102',
-    state: 'cta_menu',
-    updated_at: new Date(Date.now() - 1000 * 60 * 65).toISOString(),
-    loadingPin: '380001',
-    unloadingPin: '560001',
-    cargoType: 'Export',
-    vehicleType: 'Container',
-    vehicleSubType: '32 Ft MXL Close Body',
-    material: 'Pharmaceutical Formulations & Active APIs',
-    loadingDate: '28/09/2026',
-    company: 'Zydus Lifesciences Ltd',
-    contactName: 'Anil Desai',
-    phone: '+91 99789 44321',
-    email: 'anil.desai@zyduslife.com',
-    status: 'quoted',
-    leadScore: 'HOT',
-  },
-  {
-    user_id: 'book_103',
-    state: 'cta_menu',
-    updated_at: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    loadingPin: '411001',
-    unloadingPin: '400001',
-    cargoType: 'Domestic',
-    vehicleType: 'Tempo',
-    vehicleSubType: '14 Ft',
-    material: 'Automotive Spare Parts & Fasteners',
-    loadingDate: '22/09/2026',
-    company: 'Bharat Forge Component Div',
-    contactName: 'Priya Kulkarni',
-    phone: '+91 94220 88712',
-    email: 'priya.kulkarni@bharatforge.com',
-    status: 'assigned',
-    leadScore: 'WARM',
-  },
-  {
-    user_id: 'book_104',
-    state: 'cta_menu',
-    updated_at: new Date(Date.now() - 1000 * 60 * 360).toISOString(),
-    loadingPin: '600001',
-    unloadingPin: '500001',
-    cargoType: 'Domestic',
-    vehicleType: 'Trailer / ODC',
-    vehicleSubType: 'Trailer',
-    material: 'Wind Turbine Heavy Hub Components',
-    loadingDate: '02/10/2026',
-    company: 'Vestas Wind Technology India',
-    contactName: 'Senthil Nathan',
-    phone: '+91 98401 23456',
-    email: 'senthil@vestasindia.com',
-    status: 'in_transit',
-    leadScore: 'HOT',
-  },
-  {
-    user_id: 'book_105',
-    state: 'material',
-    updated_at: new Date(Date.now() - 1000 * 60 * 720).toISOString(),
-    loadingPin: '395001',
-    unloadingPin: '302001',
-    cargoType: 'Domestic',
-    vehicleType: 'Tempo',
-    vehicleSubType: '9 Ft',
-    material: 'Cotton Fabrics & Garment Rolls',
-    loadingDate: '30/09/2026',
-    company: 'Surat Textile Export Hub',
-    contactName: 'Mahesh Singhal',
-    phone: '+91 98251 77654',
-    email: 'mahesh@suratfabrics.in',
-    status: 'completed',
-    leadScore: 'WARM',
-  }
-];
-
-const SAMPLE_TRANSPORTERS: Transporter[] = [
-  {
-    user_id: 'trans_201',
-    state: 'cta_menu',
-    updated_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    vehicleType: 'Truck',
-    vehicleNumber: 'MH 04 GP 8842',
-    driverName: 'Gurpreet Singh',
-    capacity: '16 Tons',
-    routePreference: 'Mumbai - Ahmedabad - Delhi - Jaipur',
-    availability: 'Available Immediately (Bhiwandi Hub)',
-    driverPhone: '+91 98190 22345',
-    notes: '22 Ft Open Body Truck with GPS and Tarpaulin',
-    verified: true,
-  },
-  {
-    user_id: 'trans_202',
-    state: 'cta_menu',
-    updated_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    vehicleType: 'Container',
-    vehicleNumber: 'GJ 01 CX 4590',
-    driverName: 'Kishore Patel',
-    capacity: '24 Tons',
-    routePreference: 'Ahmedabad - Mumbai - Bengaluru - Chennai',
-    availability: 'Available in 24 Hours',
-    driverPhone: '+91 97234 11223',
-    notes: '32 Ft MXL High-Cube Container for Pharma & FMCG',
-    verified: true,
-  },
-  {
-    user_id: 'trans_203',
-    state: 'cta_menu',
-    updated_at: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
-    vehicleType: 'Tempo',
-    vehicleNumber: 'MH 12 QW 9901',
-    driverName: 'Sanjay Shinde',
-    capacity: '4.5 Tons',
-    routePreference: 'Pune - Mumbai - Nashik - Aurangabad',
-    availability: 'Available Today',
-    driverPhone: '+91 98811 55667',
-    notes: '14 Ft Closed Tempo with hydraulic tailgate',
-    verified: true,
-  },
-  {
-    user_id: 'trans_204',
-    state: 'cta_menu',
-    updated_at: new Date(Date.now() - 1000 * 60 * 600).toISOString(),
-    vehicleType: 'Trailer / ODC',
-    vehicleNumber: 'TN 02 BB 7711',
-    driverName: 'Ramanathan K.',
-    capacity: '40 Tons',
-    routePreference: 'Chennai - Hyderabad - Nagpur - Delhi',
-    availability: 'On Trip (Available from 26th Sep)',
-    driverPhone: '+91 94440 99887',
-    notes: '40 Ft Low-Bed Multi-Axle Heavy Trailer',
-    verified: true,
-  }
-];
-
-const SAMPLE_SESSIONS: SessionRecord[] = [
-  {
-    user_id: 'sess_901',
-    phone: '+91 98205 00159',
-    state: 'cta_menu',
-    updated_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    flow_type: 'book',
-    data: { loadingPin: '400001', unloadingPin: '110001', vehicleType: 'Truck', material: 'Machinery' }
-  },
-  {
-    user_id: 'sess_902',
-    phone: '+91 98190 22345',
-    state: 'cta_menu',
-    updated_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    flow_type: 'provider',
-    data: { provider_vehicleType: 'Truck', provider_capacity: '16 Tons', provider_routes: 'Mumbai-Delhi' }
-  },
-  {
-    user_id: 'sess_903',
-    phone: '+91 99789 44321',
-    state: 'main_menu',
-    updated_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-    flow_type: '',
-    data: {}
-  }
-];
-
-const SAMPLE_CONVERSATIONS: ConversationThread[] = [
-  {
-    phone: '+91 98205 00159',
-    userName: 'Rahul Verma',
-    company: 'Reliance Logistics',
-    lastMessage: '✅ Booking Request Submitted Successfully! Route: 400001 ➔ 110001',
-    lastTimestamp: '10 mins ago',
-    unreadCount: 0,
-    mode: 'bot',
-    state: 'cta_menu',
-    flowType: 'book',
-    messages: [
-      { id: 'm1', sender: 'user', text: 'Hi', timestamp: '10:15 AM', status: 'read' },
-      { id: 'm2', sender: 'bot', text: '🙏 *Welcome to Traket Transport* 🚛\n\n👉 Please select your requirement:\n1️⃣ Book a Vehicle\n2️⃣ Provide Vehicle\n3️⃣ Support', timestamp: '10:15 AM', status: 'read' },
-      { id: 'm3', sender: 'user', text: '1', timestamp: '10:16 AM', status: 'read' },
-      { id: 'm4', sender: 'bot', text: '📍 Enter *Loading Pincode* (6 digits):', timestamp: '10:16 AM', status: 'read' },
-      { id: 'm5', sender: 'user', text: '400001', timestamp: '10:17 AM', status: 'read' },
-      { id: 'm6', sender: 'bot', text: '📍 Enter *Unloading Pincode* (6 digits):', timestamp: '10:17 AM', status: 'read' },
-      { id: 'm7', sender: 'user', text: '110001', timestamp: '10:18 AM', status: 'read' },
-      { id: 'm8', sender: 'bot', text: '✅ *Booking Request Submitted Successfully!*\n📍 Route: 400001 ➔ 110001\n🚛 Vehicle: Truck (22 Ft Open)', timestamp: '10:20 AM', status: 'delivered' }
-    ]
-  },
-  {
-    phone: '+91 98190 22345',
-    userName: 'Gurpreet Singh (Transporter)',
-    company: 'Singh Roadlines Mumbai',
-    lastMessage: '✅ Vehicle Registered Successfully! 🚛 Vehicle: Truck (MH 04 GP 8842)',
-    lastTimestamp: '42 mins ago',
-    unreadCount: 1,
-    mode: 'human',
-    state: 'cta_menu',
-    flowType: 'provider',
-    messages: [
-      { id: 'm20', sender: 'user', text: 'Hello, I have 22ft truck in Bhiwandi', timestamp: '09:40 AM', status: 'read' },
-      { id: 'm21', sender: 'bot', text: '🙏 Welcome to Traket! Select: 1️⃣ Book 2️⃣ Provide Vehicle', timestamp: '09:40 AM', status: 'read' },
-      { id: 'm22', sender: 'user', text: '2', timestamp: '09:41 AM', status: 'read' },
-      { id: 'm23', sender: 'agent', text: 'Hi Gurpreet ji, we have loads for Delhi ready to dispatch. What is your best freight rate?', timestamp: '09:45 AM', status: 'delivered' }
-    ]
-  },
-  {
-    phone: '+91 99789 44321',
-    userName: 'Anil Desai',
-    company: 'Zydus Lifesciences',
-    lastMessage: '📦 Select Cargo Type: 1 Domestic 2 Import 3 Export',
-    lastTimestamp: '1 hour ago',
-    unreadCount: 0,
-    mode: 'bot',
-    state: 'cargo_type',
-    flowType: 'book',
-    messages: [
-      { id: 'm30', sender: 'user', text: 'Hi', timestamp: '09:00 AM', status: 'read' },
-      { id: 'm31', sender: 'bot', text: '🙏 Welcome to Traket Transport', timestamp: '09:00 AM', status: 'read' }
-    ]
-  }
-];
+export const ACTIVE_CLIENT_PROFILE: ClientCompanyProfile = {
+  name: 'Traket Transport',
+  phoneNumber: '+91 99309 95959',
+  phoneNumberId: '1240163099173755',
+  whatsappStatus: 'connected',
+  supabaseUrl: SUPABASE_URL,
+};
 
 class SupabaseDataService {
-  private client: any = null;
-  private bookings: BookingLead[] = [...SAMPLE_BOOKINGS];
-  private transporters: Transporter[] = [...SAMPLE_TRANSPORTERS];
-  private sessions: SessionRecord[] = [...SAMPLE_SESSIONS];
-  private conversations: ConversationThread[] = [...SAMPLE_CONVERSATIONS];
+  private client: any;
 
   constructor() {
-    this.initClient(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_KEY);
+    this.client = createClient(SUPABASE_URL, SUPABASE_KEY);
   }
 
-  public initClient(url: string, key: string) {
-    if (url && key) {
-      try {
-        this.client = createClient(url, key);
-      } catch (e) {
-        console.warn('Could not initialize Supabase client:', e);
-      }
-    }
-  }
-
-  // --- BOOKINGS API ---
+  // --- REAL BOOKINGS API (FROM book_vehicle TABLE) ---
   async getBookings(): Promise<BookingLead[]> {
-    if (this.client) {
-      try {
-        const { data, error } = await this.client.from('book_vehicle').select('*').order('updated_at', { ascending: false });
-        if (!error && data && data.length > 0) {
-          return data.map((d: any) => this.enhanceBooking(d));
-        }
-      } catch (err) {
-        console.warn('Supabase fetch bookings failed, returning state data:', err);
+    try {
+      const { data, error } = await this.client
+        .from('book_vehicle')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (error || !data) {
+        return [];
       }
+
+      return data.map((d: any) => this.enhanceBooking(d));
+    } catch (err) {
+      console.error('Error fetching bookings from Supabase:', err);
+      return [];
     }
-    return this.bookings.map((b) => this.enhanceBooking(b));
   }
 
   private enhanceBooking(b: any): BookingLead {
-    const loadingInfo = resolvePinCode(b.loadingPin || b.loading_pin);
-    const unloadingInfo = resolvePinCode(b.unloadingPin || b.unloading_pin);
-    const distance = estimateDistanceKm(b.loadingPin || b.loading_pin, b.unloadingPin || b.unloading_pin);
-    const score = calculateLeadScore(b.material, b.loadingDate || b.loading_date, b.cargoType || b.cargo_type);
+    const loadingPin = b.loadingPin || b.loading_pin || '';
+    const unloadingPin = b.unloadingPin || b.unloading_pin || '';
+    const loadingInfo = resolvePinCode(loadingPin);
+    const unloadingInfo = resolvePinCode(unloadingPin);
+    const distance = estimateDistanceKm(loadingPin, unloadingPin);
+    const score = calculateLeadScore(
+      b.material || '',
+      b.loadingDate || b.loading_date || '',
+      b.cargoType || b.cargo_type || ''
+    );
 
     return {
       user_id: b.user_id,
       state: b.state || 'cta_menu',
       updated_at: b.updated_at || new Date().toISOString(),
-      loadingPin: b.loadingPin || b.loading_pin || '',
-      unloadingPin: b.unloadingPin || b.unloading_pin || '',
+      loadingPin,
+      unloadingPin,
       cargoType: b.cargoType || b.cargo_type || '',
       vehicleType: b.vehicleType || b.vehicle_type || '',
       vehicleSubType: b.vehicleSubType || b.vehicle_sub_type || '',
@@ -333,6 +80,7 @@ class SupabaseDataService {
       contactName: b.contactName || b.contact_name || '',
       phone: b.phone || '',
       email: b.email || '',
+      website: b.website || '',
       status: b.status || 'new',
       loadingCity: loadingInfo.city,
       unloadingCity: unloadingInfo.city,
@@ -341,99 +89,221 @@ class SupabaseDataService {
     };
   }
 
-  async updateBookingStatus(userId: string, newStatus: BookingLead['status']): Promise<void> {
-    const idx = this.bookings.findIndex((b) => b.user_id === userId);
-    if (idx !== -1) {
-      this.bookings[idx].status = newStatus;
-    }
-    if (this.client) {
-      try {
-        await this.client.from('book_vehicle').update({ status: newStatus }).eq('user_id', userId);
-      } catch (e) {
-        console.warn('DB update status fallback');
-      }
+  async updateBookingStatus(userId: string, newStatus: BookingLead['status']): Promise<boolean> {
+    try {
+      const { error } = await this.client
+        .from('book_vehicle')
+        .update({ status: newStatus })
+        .eq('user_id', userId);
+
+      return !error;
+    } catch (e) {
+      console.error('Failed to update booking status:', e);
+      return false;
     }
   }
 
-  // --- TRANSPORTERS API ---
+  // --- REAL TRANSPORTERS API (FROM provide_vehicle TABLE) ---
   async getTransporters(): Promise<Transporter[]> {
-    if (this.client) {
-      try {
-        const { data, error } = await this.client.from('provide_vehicle').select('*').order('updated_at', { ascending: false });
-        if (!error && data && data.length > 0) {
-          return data.map((d: any) => ({
-            user_id: d.user_id,
-            state: d.state || 'cta_menu',
-            updated_at: d.updated_at || new Date().toISOString(),
-            vehicleType: d.vehicle_type || d.vehicleType || '',
-            vehicleNumber: d.vehicle_number || d.vehicleNumber || '',
-            driverName: d.driver_name || d.driverName || '',
-            capacity: d.capacity || '',
-            routePreference: d.route_preference || d.routePreference || '',
-            driverPhone: d.driver_phone || d.driverPhone || '',
-            availability: d.availability || 'Available',
-            notes: d.notes || '',
-            verified: true,
-          }));
-        }
-      } catch (err) {
-        console.warn('Supabase fetch transporters failed:', err);
+    try {
+      const { data, error } = await this.client
+        .from('provide_vehicle')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (error || !data) {
+        return [];
       }
+
+      return data.map((d: any) => ({
+        user_id: d.user_id,
+        state: d.state || 'cta_menu',
+        updated_at: d.updated_at || new Date().toISOString(),
+        vehicleType: d.vehicle_type || d.vehicleType || '',
+        vehicleNumber: d.vehicle_number || d.vehicleNumber || '',
+        driverName: d.driver_name || d.driverName || '',
+        capacity: d.capacity || '',
+        routePreference: d.route_preference || d.routePreference || '',
+        driverPhone: d.driver_phone || d.driverPhone || '',
+        availability: d.availability || 'Available',
+        currentLocation: d.current_location || '',
+        notes: d.notes || '',
+        documents: d.documents || '',
+        verified: true,
+      }));
+    } catch (err) {
+      console.error('Error fetching transporters from Supabase:', err);
+      return [];
     }
-    return this.transporters;
   }
 
-  // --- SESSIONS API ---
+  // --- REAL SESSIONS API (FROM users_master TABLE) ---
   async getSessions(): Promise<SessionRecord[]> {
-    if (this.client) {
-      try {
-        const { data, error } = await this.client.from('users_master').select('*').order('updated_at', { ascending: false });
-        if (!error && data && data.length > 0) {
-          return data.map((d: any) => ({
-            user_id: d.user_id,
-            phone: d.phone,
-            state: d.state,
-            updated_at: d.updated_at,
-            flow_type: d.flow_type || '',
-            data: typeof d.data === 'string' ? JSON.parse(d.data || '{}') : d.data || {},
-          }));
-        }
-      } catch (err) {
-        console.warn('Supabase fetch sessions failed:', err);
+    try {
+      const { data, error } = await this.client
+        .from('users_master')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (error || !data) {
+        return [];
       }
+
+      return data.map((d: any) => ({
+        user_id: d.user_id,
+        phone: d.phone || '',
+        state: d.state || '',
+        updated_at: d.updated_at || new Date().toISOString(),
+        flow_type: d.flow_type || '',
+        data: typeof d.data === 'string' ? JSON.parse(d.data || '{}') : d.data || {},
+      }));
+    } catch (err) {
+      console.error('Error fetching sessions from Supabase:', err);
+      return [];
     }
-    return this.sessions;
   }
 
-  // --- CONVERSATIONS & INBOX API ---
+  // --- REAL SUPPORT TICKETS (FROM support TABLE) ---
+  async getSupportTickets(): Promise<SupportTicket[]> {
+    try {
+      const { data, error } = await this.client
+        .from('support')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (error || !data) {
+        return [];
+      }
+
+      return data.map((d: any) => ({
+        user_id: d.user_id,
+        phone: d.phone || '',
+        contactName: d.contact_name || d.contactName || '',
+        subject: d.subject || d.query || 'Customer Inquiry',
+        message: d.message || d.query || '',
+        status: d.status || 'open',
+        priority: d.priority || 'medium',
+        updated_at: d.updated_at || new Date().toISOString(),
+      }));
+    } catch (err) {
+      console.error('Error fetching support tickets from Supabase:', err);
+      return [];
+    }
+  }
+
+  // --- SYNTHESIZE LIVE CONVERSATIONS FROM REAL USERS_MASTER SESSIONS ---
   async getConversations(): Promise<ConversationThread[]> {
-    return this.conversations;
-  }
+    try {
+      const sessions = await this.getSessions();
+      if (!sessions || sessions.length === 0) {
+        return [];
+      }
 
-  async sendAgentMessage(phone: string, text: string): Promise<ChatMessage> {
-    const thread = this.conversations.find((c) => c.phone === phone);
-    const newMsg: ChatMessage = {
-      id: `m_${Date.now()}`,
-      sender: 'agent',
-      text,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'sent',
-    };
+      // Group sessions by phone number
+      const phoneMap = new Map<string, SessionRecord>();
+      for (const session of sessions) {
+        const cleanPhone = (session.phone || '').replace(/\D/g, '');
+        if (!cleanPhone) continue;
+        if (!phoneMap.has(cleanPhone)) {
+          phoneMap.set(cleanPhone, session);
+        }
+      }
 
-    if (thread) {
-      thread.messages.push(newMsg);
-      thread.lastMessage = text;
-      thread.lastTimestamp = 'Just now';
-      thread.mode = 'human';
+      const threads: ConversationThread[] = [];
+
+      for (const [phone, session] of phoneMap.entries()) {
+        const data = session.data || {};
+        const userName = data.contactName || data.name || data.contact_name || `WhatsApp User (${phone.slice(-4)})`;
+        const company = data.company || '';
+        const flowType = session.flow_type || (data.cargoType ? 'book' : 'general');
+        
+        let lastMsg = 'WhatsApp Session Started';
+        if (session.state === 'cta_menu') {
+          lastMsg = flowType === 'book' ? '✅ Booking request submitted' : '✅ Transporter registered';
+        } else if (session.state) {
+          lastMsg = `Step: ${session.state.replace(/_/g, ' ')}`;
+        }
+
+        const formattedPhone = phone.startsWith('91') ? `+91 ${phone.slice(2, 7)} ${phone.slice(7)}` : `+${phone}`;
+
+        // Create reconstructed message thread for this live session
+        const messages: ChatMessage[] = [
+          {
+            id: `msg_${session.user_id}_1`,
+            sender: 'user',
+            text: 'Hi, I would like to connect with Traket Transport.',
+            timestamp: new Date(session.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'read',
+          },
+          {
+            id: `msg_${session.user_id}_2`,
+            sender: 'bot',
+            text: `🙏 Welcome to Traket Transport!\n\nFlow: ${flowType.toUpperCase()}\nCurrent Status: ${session.state}`,
+            timestamp: new Date(session.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'delivered',
+          },
+        ];
+
+        if (data.loadingPin || data.unloadingPin) {
+          messages.push({
+            id: `msg_${session.user_id}_3`,
+            sender: 'bot',
+            text: `📍 Route: ${data.loadingPin || 'N/A'} ➔ ${data.unloadingPin || 'N/A'}\n🚛 Vehicle: ${data.vehicleType || 'Any'}\n📦 Cargo: ${data.material || 'General'}`,
+            timestamp: new Date(session.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'delivered',
+          });
+        }
+
+        threads.push({
+          phone: formattedPhone,
+          userName,
+          company,
+          lastMessage: lastMsg,
+          lastTimestamp: new Date(session.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          unreadCount: 0,
+          mode: 'bot',
+          state: session.state,
+          flowType,
+          messages,
+        });
+      }
+
+      return threads;
+    } catch (err) {
+      console.error('Error constructing conversations:', err);
+      return [];
     }
-
-    return newMsg;
   }
 
-  async toggleBotMode(phone: string, mode: 'bot' | 'human'): Promise<void> {
-    const thread = this.conversations.find((c) => c.phone === phone);
-    if (thread) {
-      thread.mode = mode;
+  // --- SEND AGENT MESSAGE VIA WHATSAPP CLOUD API ---
+  async sendAgentMessage(recipientPhone: string, text: string): Promise<boolean> {
+    try {
+      const cleanPhone = recipientPhone.replace(/\D/g, '');
+      const url = `https://graph.facebook.com/v20.0/${WHATSAPP_CONFIG.phoneNumberId}/messages`;
+      
+      const payload = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: cleanPhone,
+        type: 'text',
+        text: { body: text },
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${WHATSAPP_CONFIG.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const resJson = await response.json();
+      console.log('WhatsApp Agent message response:', resJson);
+      return response.ok;
+    } catch (err) {
+      console.error('Failed to send agent WhatsApp message:', err);
+      return false;
     }
   }
 }
