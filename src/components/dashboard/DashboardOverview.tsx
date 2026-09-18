@@ -2,15 +2,12 @@ import React from 'react';
 import {
   Package,
   Truck,
-  MessageSquare,
   Zap,
   ArrowUpRight,
   Send,
   CheckCircle2,
-  Clock,
-  Sparkles,
-  PhoneCall,
   Activity,
+  LifeBuoy,
 } from 'lucide-react';
 import { BookingLead, Transporter, ClientCompanyProfile } from '../../types';
 
@@ -50,12 +47,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       tab: 'transporters',
     },
     {
-      title: 'WhatsApp Cloud API',
-      value: 'Online',
-      subtitle: clientProfile.phoneNumber,
-      icon: MessageSquare,
-      color: 'from-teal-600 to-emerald-500',
-      tab: 'inbox',
+      title: 'Smart Match Engine',
+      value: 'Auto-Match',
+      subtitle: 'Pair loads with trucks',
+      icon: Zap,
+      color: 'from-purple-600 to-indigo-500',
+      tab: 'matcher',
       isText: true,
     },
     {
@@ -84,7 +81,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             Welcome to {clientProfile.name} Automation
           </h2>
           <p className="text-xs text-slate-400 mt-1 max-w-xl">
-            Realtime customer demands, fleet registrations, and WhatsApp conversation streams are synced instantly.
+            Realtime customer freight demands, fleet registrations, and automated dispatch intelligence.
           </p>
         </div>
 
@@ -93,7 +90,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             onClick={() => onNavigateTab('matcher')}
             className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold transition"
           >
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
+            <Zap className="w-3.5 h-3.5 text-purple-400" />
             <span>Smart Matcher</span>
           </button>
           <button
@@ -169,7 +166,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <div>
                 <h4 className="text-sm font-bold text-white">Database is Clean & Ready</h4>
                 <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                  No testing queries in database. When customers message{' '}
+                  When customers message{' '}
                   <span className="text-emerald-400 font-mono font-bold">{clientProfile.phoneNumber}</span>, their booking requests will appear here instantly.
                 </p>
               </div>
@@ -228,7 +225,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <span className="font-bold text-white">{registeredTransporters}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400">Bot Service</span>
+              <span className="text-slate-400">WhatsApp Automation</span>
               <span className="text-emerald-400 font-bold flex items-center space-x-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Active 24/7</span>
@@ -248,10 +245,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               View Transporter Registry
             </button>
             <button
-              onClick={() => onNavigateTab('inbox')}
-              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold transition text-center"
+              onClick={() => onNavigateTab('matcher')}
+              className="w-full py-2.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold transition text-center"
             >
-              Open Live 2-Way Inbox
+              Open Smart Matcher
             </button>
           </div>
         </div>

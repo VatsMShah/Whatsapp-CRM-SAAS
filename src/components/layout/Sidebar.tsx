@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  MessageSquare,
   Package,
   Truck,
   LifeBuoy,
@@ -19,7 +18,6 @@ interface SidebarProps {
   clientProfile: ClientCompanyProfile;
   bookingCount: number;
   transporterCount: number;
-  activeChatCount: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,7 +26,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   clientProfile,
   bookingCount,
   transporterCount,
-  activeChatCount,
 }) => {
   const navItems = [
     {
@@ -53,14 +50,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: transporterCount > 0 ? `${transporterCount} Registered` : '',
       badgeColor: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
       description: 'Available trucks & vehicles',
-    },
-    {
-      id: 'inbox',
-      label: 'Live WhatsApp Inbox',
-      icon: MessageSquare,
-      badge: activeChatCount > 0 ? `${activeChatCount} Active` : 'Live',
-      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
-      description: '2-way chat with takeover',
     },
     {
       id: 'broadcast',
@@ -109,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Clean Single Client Card (No confusing multi-tenant dropdown) */}
+      {/* Clean Single Client Card */}
       <div className="p-4 border-b border-slate-800/60">
         <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 shadow-inner">
           <div className="flex items-center space-x-3">

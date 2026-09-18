@@ -5,11 +5,10 @@ import { DashboardOverview } from './components/dashboard/DashboardOverview';
 import { BookingsTable } from './components/tables/BookingsTable';
 import { TransportersTable } from './components/tables/TransportersTable';
 import { SupportTable } from './components/tables/SupportTable';
-import { LiveInbox } from './components/inbox/LiveInbox';
 import { SmartMatcher } from './components/smart/SmartMatcher';
 import { BroadcastModal } from './components/broadcast/BroadcastModal';
 import { dbService, ACTIVE_CLIENT_PROFILE } from './services/supabase';
-import { BookingLead, Transporter, ConversationThread, ClientCompanyProfile } from './types';
+import { BookingLead, Transporter, ClientCompanyProfile } from './types';
 
 export function App() {
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -18,7 +17,6 @@ export function App() {
   // Real Database state
   const [bookings, setBookings] = useState<BookingLead[]>([]);
   const [transporters, setTransporters] = useState<Transporter[]>([]);
-  const [conversations, setConversations] = useState<ConversationThread[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Broadcast modal state
@@ -32,14 +30,12 @@ export function App() {
   const loadData = async () => {
     setIsRefreshing(true);
     try {
-      const [b, t, c] = await Promise.all([
+      const [b, t] = await Promise.all([
         dbService.getBookings(),
         dbService.getTransporters(),
-        dbService.getConversations(),
       ]);
       setBookings(b || []);
       setTransporters(t || []);
-      setConversations(c || []);
     } catch (err) {
       console.error('Failed to load Supabase data:', err);
     } finally {
@@ -49,7 +45,7 @@ export function App() {
 
   useEffect(() => {
     loadData();
-    // Poll every 15s to keep live WhatsApp stream updated
+    // Poll every 15s to keep live data updated
     const interval = setInterval(() => {
       loadData();
     }, 15000);
@@ -73,22 +69,12 @@ export function App() {
     );
   };
 
-  const handleSendInboxMessage = async (phone: string, text: string) => {
-    await dbService.sendAgentMessage(phone, text);
-    const updated = await dbService.getConversations();
-    setConversations(updated);
-  };
-
-  const handleToggleBotMode = async (_phone: string, _mode: 'bot' | 'human') => {
-    // Mode toggled
-  };
-
   const getTabTitle = () => {
     switch (currentTab) {
       case 'dashboard':
         return {
           title: 'Executive Dashboard',
-          subtitle: 'Live summary of customer bookings, fleet availability, and bot conversations',
+          subtitle: 'Live summary of customer freight demands and fleet availability',
         };
       case 'bookings':
         return {
@@ -99,11 +85,6 @@ export function App() {
         return {
           title: 'Transporter Fleet Registry',
           subtitle: 'Available trucks, drivers, and registered logistics partners',
-        };
-      case 'inbox':
-        return {
-          title: 'Live 2-Way WhatsApp Inbox',
-          subtitle: 'Realtime customer conversation stream with 1-click human agent takeover',
         };
       case 'broadcast':
         return {
@@ -139,7 +120,6 @@ export function App() {
         clientProfile={clientProfile}
         bookingCount={bookings.length}
         transporterCount={transporters.length}
-        activeChatCount={conversations.length}
       />
 
       {/* Main Content Area */}
@@ -179,14 +159,6 @@ export function App() {
             <TransportersTable
               transporters={transporters}
               onOpenBroadcastForSelected={(selected) => handleOpenBroadcastModal(selected)}
-            />
-          )}
-
-          {currentTab === 'inbox' && (
-            <LiveInbox
-              conversations={conversations}
-              onSendMessage={handleSendInboxMessage}
-              onToggleBotMode={handleToggleBotMode}
             />
           )}
 
