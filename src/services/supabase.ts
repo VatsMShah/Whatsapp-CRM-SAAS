@@ -14,15 +14,15 @@ export const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';
 export const SUPABASE_KEY = (import.meta as any).env?.VITE_SUPABASE_KEY || '';
 
 export const WHATSAPP_CONFIG = {
-  phoneNumberId: '1240163099173755',
-  displayPhoneNumber: '+91 99309 95959',
-  token: '',
+  phoneNumberId: (import.meta as any).env?.VITE_WHATSAPP_PHONE_NUMBER_ID || '',
+  displayPhoneNumber: (import.meta as any).env?.VITE_WHATSAPP_DISPLAY_PHONE || '+91 99309 95959',
+  token: (import.meta as any).env?.VITE_WHATSAPP_TOKEN || '',
 };
 
 export const ACTIVE_CLIENT_PROFILE: ClientCompanyProfile = {
   name: 'Traket Transport',
   phoneNumber: '+91 99309 95959',
-  phoneNumberId: '1240163099173755',
+  phoneNumberId: (import.meta as any).env?.VITE_WHATSAPP_PHONE_NUMBER_ID || '',
   whatsappStatus: 'connected',
   supabaseUrl: SUPABASE_URL,
 };
